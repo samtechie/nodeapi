@@ -1,16 +1,26 @@
-const http = require('http')
+// const http = require('http')
 const querystring = require('querystring')
+const express = require('express')
 const fs = require('fs')
 
 const port = process.env.PORT || 1337
+
+const app = express()
+
+app.get('/', respondText)
+app.get('/json', respondJson)
+app.get('/echo', respondEcho)
+app.get('/static/*', respondStatic)
+
+
+app.listen(port, () => console.log(`Server listening on port ${port}`))
 
 function respondText(req, res) {
   res.setHeader('Content-Type', 'text/plain')
   res.end('hi')
 }
 function respondJson(req, res) {
-  res.setHeader('Content-Type', 'application/json')
-  res.end(JSON.stringify({ text: 'hi', numbers: [1, 2, 3] }))
+  res.json({ text: 'hi', numbers: [1, 2, 3] })
 }
 
 function respondNotFound(req, res) {
@@ -19,15 +29,8 @@ function respondNotFound(req, res) {
 }
 
 function respondEcho(req, res) {
-  const { input = '' } = querystring.parse(
-    req.url
-      .split('?')
-      .slice(1)
-      .join('')
-  )
-  res.setHeader('Content-Type', 'application/json')
-  res.end(
-    JSON.stringify({
+  const { input = '' } = req.query
+  res.json({
       normal: input,
       shouty: input.toUpperCase(),
       characterCount: input.length,
@@ -36,23 +39,15 @@ function respondEcho(req, res) {
         .reverse()
         .join('')
     })
-  )
+
 }
 
 function respondStatic(req, res) {
-  const filename = `${__dirname}/public${req.url.split('/static')[1]}`
+  const filename = `${__dirname}/public/${req.params[0]}`
   fs.createReadStream(filename)
     .on('error', () => respondNotFound(req, res))
     .pipe(res)
 }
 
-const server = http.createServer(function (req, res) {
-  if (req.url === '/') return respondText(req, res)
-  if (req.url === '/json') return respondJson(req, res)
-  if (req.url.match(/^\/echo/)) return respondEcho(req, res)
-  if (req.url.match(/^\/static/)) return respondStatic(req, res)
-  respondNotFound(req, res)
-})
 
-server.listen(port);
-console.log(`Server listening on port ${port}`);
+
