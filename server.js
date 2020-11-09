@@ -2,15 +2,21 @@
 const querystring = require('querystring')
 const express = require('express')
 const fs = require('fs')
+const EventEmitter = require('events')
 
 const port = process.env.PORT || 1337
 
 const app = express()
 
+const chatEmitter = new EventEmitter()
+chatEmitter.on('message', console.log)
+
 app.get('/', respondText)
 app.get('/json', respondJson)
 app.get('/echo', respondEcho)
 app.get('/static/*', respondStatic)
+app.get('/chat', respondChat)
+app.get('/sse', respondSSE)
 
 
 app.listen(port, () => console.log(`Server listening on port ${port}`))
@@ -47,6 +53,25 @@ function respondStatic(req, res) {
   fs.createReadStream(filename)
     .on('error', () => respondNotFound(req, res))
     .pipe(res)
+}
+
+function respondChat(req, res) {
+  const { message } = req.query
+  chatEmitter.emit('message', message)
+  res.end()
+}
+
+function respondSSE(req,res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Connection' : 'keep-alive'
+  })
+
+  const onMessage = msg => res.write(`data: ${msg}\n\n`)
+  chatEmitter.on('message', onMessage)
+  res.on('close', function () {
+    chatEmitter.off('message', onMessage)
+  })
 }
 
 
